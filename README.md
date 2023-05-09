@@ -2,19 +2,78 @@
 # Algo explanation
 
 The algorithm is of a family I haven't seen presented elsewhere. 
+It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
 
 It does a first pass to analyze the values to sort. It extracts the min val and the max val.
 
 If the delta between min and max is equal to 0, the values left are the same so we don't need to reorder, so we are done.
 
 Then we do a second pass to count the number of collision we will encounter to attribute the right positions to the different slots in the final array.
+We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nmemb * (val - min) / (max - min).
+This operation has the good property to be fast to compute, 
+but it may be improved by using a bijection that would allow to change the values to make them farther from one another, 
+but it is not trivial to find such a function with the required properties (the order of the values must be preserved).
 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
+
+Then, for each slot with more than one value, we recurse in the specific slot.
+## Example on dummy array
+
+```
+┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐
+│ 62││-12││ 15││ 45││  0││ 30││ 25││  3││ 25││ 50││  5││100││ 10│
+└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘
+```
+First pass => min = -12, max = 100
+
+Second pass =>
+```
+ -12  -3.4   5.2    13.8   22.4   31.6   40.2    49    57.6   66.2   74.8    83.4  91.4   100
+ ┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐
+ │    1││    3││    1││    1││    3││    0││    1││    1││    1││    0││    0││    0││    1│
+ └─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘
+```
+ Then do the sort =>
+```
+┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐┌───┐
+│-12││  0││  3││  5││ 10││ 15││ 30││ 25││ 25││ 45││ 50││ 62││100│
+└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘└───┘
+```
+
+Then we recurse for the sub arrays of size > 1
+```
+┌───┐┌───┐┌───┐
+│  0││  3││  5│
+└───┘└───┘└───┘
+┌───┐┌───┐┌───┐
+│ 30││ 25││ 25│
+└───┘└───┘└───┘
+```
+Here, both will be sorted fast. The first won't change but the second will need one additional recursion:
+
+```
+┌───┐┌───┐┌───┐
+│ 30││ 25││ 25│
+└───┘└───┘└───┘
+```
+Min = 25, max = 30 and distribution array:
+```
+┌───┐┌───┐┌───┐
+│  2││  0││  1│
+└───┘└───┘└───┘
+```
+Results:
+```
+┌───┐┌───┐┌───┐
+│ 25││ 25││ 30│
+└───┘└───┘└───┘
+```
+And here the first slot has 2 values identical, so it will recurse but stop after the first pass as min == max
 
 # Memory usage
 
 This algorithm needs memory to store the actual offset in each slot for the next insertion. 
-The required quantity for the first version of this algorithm is of order of n, but it probably could be lowered by a smarter way to store the values.
+The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
 # Time complexity
 
