@@ -7,7 +7,7 @@ It does a first pass to analyze the values to sort. It extracts the min val and 
 
 If the delta between min and max is equal to 0, the values left are the same so we don't need to reorder, so we are done.
 
-Then we do a second pass to count the number of collision we will encounter to attribute the right positions to the different slots in the final array
+Then we do a second pass to count the number of collision we will encounter to attribute the right positions to the different slots in the final array.
 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
 
@@ -23,6 +23,12 @@ Most of the time, the time complexity is of order of n, if the values create ord
 To have a time complexity higher than O(n), the values must be in the same slot in a significant way recursively. 
 To have a complexity of O(n*s), we thus need to have values recursively close s times. 
 Depending on the representation of the values, this value may be limited.
+
+# Parallelism
+
+As this algorithm only focuses on the values, it is completely possible to fully parallelize the process. 
+The interaction between the threads will occur in the writing of the extracted values (min and max), the number of values in each slot and in the update of the offset while the sorting occurs.
+If the algorithm is highly parallelized, the stability property is lost.
 
 # Big O 
 
@@ -52,6 +58,10 @@ Depending on the representation of the values, this value may be limited.
 └───────────────┘└───────┴───────┴───────┘└──────┴──────┴──────┘└──────┘└─────────┘└─────────┘└─────────┘
 
 ```
-It is to know that the worst case Has a specially low probability to occur, as the distribution of the values would have to be recursively of the same repartition : one very far from the others and all others VERY close
+It is to know that the worst case has an extremely low probability to occur,
+as the distribution of the values would have to be recursively of the same repartition: 
+one very far from the others and all others VERY close.
 
 # Benchmark
+
+In progress
