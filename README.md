@@ -1,7 +1,7 @@
 
 # Algo explanation
 
-The algorithm is of a family I haven't seen presented elsewhere. 
+The algorithm is close to the bucket sort. 
 It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
 
 It does a first pass to analyze the values to sort. It extracts the min val and the max val.
@@ -17,6 +17,8 @@ but it is not trivial to find such a function with the required properties (the 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
 
 Then, for each slot with more than one value, we recurse in the specific slot.
+
+TODO: Find a function to disperse too close values
 ## Example on dummy array
 
 ```
