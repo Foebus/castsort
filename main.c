@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <time.h>
 #include <stdbool.h>
@@ -12,22 +13,40 @@
 
 typedef struct mem_st {
     size_t start;
+    bool mean_ready;
+    double mean;
+    double std_deviation;
     size_t nb;
     size_t act;
 } mem_t;
 
-void my_sort(double *toSort, mem_t *work_mem, double *sorted, size_t size) {
+typedef struct value_analysis_st {
+    double above_val;
+    double beneath_val;
+    double new_val;
+    double final_index;
+    const double base_val;
+} value_analysis_t;
+
+double sigmoid(double x, double mean, double std_dev){
+    double ret_val = 1/(1 + exp(1/std_dev * (x - mean)));
+    return ret_val;
+}
+
+void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
+    double mean = 0;
+    double std_dev = 0.00000001;
 
     // Get information about to values to sort
     for (size_t i = 0; i < size; i++) {
-        if (toSort[i] < minVal) {
-            minVal = toSort[i];
+        if (toSort[i].new_val < minVal) {
+            minVal = toSort[i].new_val;
         }
-        if (toSort[i] > maxVal) {
-            maxVal = toSort[i];
+        if (toSort[i].new_val > maxVal) {
+            maxVal = toSort[i].new_val;
         }
     }
     deltaVal = maxVal - minVal;
@@ -38,9 +57,10 @@ void my_sort(double *toSort, mem_t *work_mem, double *sorted, size_t size) {
     size_t biggest_collision = 0;
     // Find the nb in each slot
     for (size_t i = 0; i < size; ++i) {
-        size_t newIndex = (size - 1) * ((toSort[i] - minVal) / deltaVal);
+        size_t newIndex = (size - 1) * ((toSort[i].new_val - minVal) / deltaVal);
         work_mem[newIndex].nb++;
         work_mem[newIndex].act = 0;
+        work_mem[newIndex].mean += toSort->new_val;
         if (work_mem[newIndex].nb > biggest_collision) {
             biggest_collision = work_mem[newIndex].nb;
         }
@@ -51,20 +71,33 @@ void my_sort(double *toSort, mem_t *work_mem, double *sorted, size_t size) {
     for (size_t i = 0; i < size; ++i) {
         work_mem[i].start = act;
         act += work_mem[i].nb;
+        if(!work_mem[i].mean_ready){
+            work_mem[i].mean_ready = true;
+            if(work_mem[i].nb != 0)
+                work_mem[i].mean /= work_mem[i].nb;
+        }
+    }
+
+    for (size_t i = 0; i < size; ++i) {
+        size_t newIndex = (size - 1) * ((toSort[i].new_val - minVal) / deltaVal);
+        work_mem[newIndex].std_deviation += (toSort[i].new_val - work_mem[i].mean) * (toSort[i].new_val - work_mem[i].mean) / work_mem[newIndex].nb;
     }
 
     // Do the sort
     size_t act_index = 0;
     size_t padding = 0;
-    double new_val, last_val = toSort[act_index];
+    double new_val, last_val = toSort[act_index].new_val;
     for (size_t i = 0; i < size; ++i) {
-        size_t slotIndex = (size - 1) * ((toSort[act_index] - minVal) / deltaVal);
+        size_t slotIndex = (size - 1) * ((toSort[act_index].new_val - minVal) / deltaVal);
         size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
-        new_val = toSort[newIndex];
+        toSort[act_index].final_index = newIndex;
+        toSort[act_index].new_val = sigmoid(toSort[act_index].new_val, work_mem[slotIndex].mean, work_mem[slotIndex].std_deviation);
+        new_val = toSort[newIndex].new_val;
         if(newIndex == padding) {
             padding++;
-            new_val = toSort[newIndex + padding];
+            new_val = toSort[newIndex + padding].new_val;
         }
+        toSort[newIndex].final_index = newIndex;
         act_index = newIndex + padding;
         sorted[newIndex] = last_val;
         last_val = new_val;
@@ -82,7 +115,7 @@ void my_sort(double *toSort, mem_t *work_mem, double *sorted, size_t size) {
             //memset(work_mem, 0, nbElem*sizeof(mem_t));
             size_t startIndex = work_mem[i].start;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j] = sorted[startIndex + j];
+                toSort[startIndex + j].new_val = sorted[startIndex + j];
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
