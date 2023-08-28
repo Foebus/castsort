@@ -82,7 +82,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
             double delta = work_mem[i].max - work_mem[i].min;
             if(work_mem[i].max - work_mem[i].min == 0) continue;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j].transformed_val = transform_value([startIndex + j], work_mem[i].min, work_mem[i].max, delta);
+                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j], work_mem[i].min, work_mem[i].max, delta);
                 toSort[startIndex + j].origin_val = sorted[startIndex + j];
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
