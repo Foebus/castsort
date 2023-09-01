@@ -8,7 +8,7 @@
 // #include <qcustomplot.h>
 #include "castsort.h"
 
-#define NB_ELEM  100000000
+#define NB_ELEM  500000000
 #define infinity 1000000000.0
 
 #define RANGE_MAX infinity
@@ -16,12 +16,12 @@
 double transform_value(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
-    // if (delta > 1) delta = 1/delta;
+    if (delta > 1) delta = 1/delta;
     double sig = 1/((1 + exp(-x)) * delta);
     return sig;
 }
 
-void my_sort(value_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
+void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, size_t size) {
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
@@ -63,9 +63,9 @@ void my_sort(value_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
         size_t slotIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
         size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
         toSort[i].final_index = newIndex;
-        sorted[newIndex] = toSort[i].origin_val;
-        if (work_mem[slotIndex].max < toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].origin_val;
-        if (work_mem[slotIndex].min > toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].origin_val;
+        sorted[newIndex] = toSort[i];
+        if (work_mem[slotIndex].max < toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].transformed_val;
+        if (work_mem[slotIndex].min > toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].transformed_val;
         work_mem[slotIndex].act++;
     }
 
@@ -82,8 +82,8 @@ void my_sort(value_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
             double delta = work_mem[i].max - work_mem[i].min;
             if(work_mem[i].max - work_mem[i].min == 0) continue;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j], work_mem[i].min, work_mem[i].max, delta);
-                toSort[startIndex + j].origin_val = sorted[startIndex + j];
+                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].transformed_val, work_mem[i].min, work_mem[i].max, delta);
+                toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
@@ -94,11 +94,11 @@ void my_sort(value_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
     }
 }
 
-void print_arrays(const double *mySecondToBeSortedArray, const double *sortedArray, const size_t nbElem) {
+void print_arrays(const double *mySecondToBeSortedArray, const value_t *sortedArray, const size_t nbElem) {
     printf("contents: \n");
     for (size_t j = 0; j < nbElem; ++j) {
-        if (mySecondToBeSortedArray[j] !=  sortedArray[j])
-            fprintf(stderr, "ref: %lf - my: %lf \n", mySecondToBeSortedArray[j], sortedArray[j]);
+        if (mySecondToBeSortedArray[j] !=  sortedArray[j].origin_val)
+            fprintf(stderr, "ref: %lf - my: %lf \n", mySecondToBeSortedArray[j], sortedArray[j].origin_val);
     }
 }
 
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
     value_t *myToBeSortedArray;
     double *mySecondToBeSortedArray;
-    double *sortedArray;
+    value_t *sortedArray;
     mem_t *myWorkMem;
     struct timeval myBegin, myEnd, refBegin, refEnd;
     double myElapsed, refElapsed;
@@ -136,7 +136,7 @@ int main(int argc, char **argv) {
         printf("Allocating memory\n");
     myToBeSortedArray = calloc(nbVal, sizeof(value_t));
     mySecondToBeSortedArray = malloc(nbVal * sizeof(double));
-    sortedArray = malloc(nbVal * sizeof(double));
+    sortedArray = calloc(nbVal, sizeof(value_t));
     myWorkMem = malloc(nbVal * sizeof(mem_t));
     srand(seed);
     //srand((unsigned int) 42);
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
     if (verbose)
         printf("Checking results\n");
     for (size_t i = 0; i < nbVal; ++i) {
-        if (fabs(mySecondToBeSortedArray[i] - sortedArray[i]) > exp(-6)) {
+        if (fabs(mySecondToBeSortedArray[i] - sortedArray[i].origin_val) > exp(-6)) {
             if (verbose) {
                 printf("The arrays don't have the same values!\n");
                 print_arrays(mySecondToBeSortedArray, sortedArray, nbVal);
@@ -175,7 +175,8 @@ int main(int argc, char **argv) {
             } else {
                 printf("Error");
             }
-            return 0;
+            // return 0;
+            break;
         }
     }
     if (verbose) {
