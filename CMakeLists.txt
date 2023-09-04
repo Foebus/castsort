@@ -3,4 +3,7 @@ project(InstaSort C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(InstaSort main.c)
+add_executable(InstaSort main.c
+        castsort.c)
+
+target_link_libraries(InstaSort m)

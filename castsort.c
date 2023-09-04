@@ -11,24 +11,19 @@
 
 #define RANGE_MAX infinity
 
-typedef struct mem_st {
-    size_t start;
-    size_t nb;
-    size_t act;
-} mem_t;
 
-void castsort(void *toSort, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC *cast) {
+void castsort(void * toSort, void *sorted, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC *cast) {
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
 
     // Get information about to values to sort
-    for (size_t i = 0; i < size; i++) {
-        if (toSort[i] < minVal) {
-            minVal = toSort[i];
+    for (size_t i = 0; i < nmemb; i++) {
+        if (cast(&toSort[i * size]) < minVal) {
+            minVal = cast(&toSort[i * size]);
         }
-        if (toSort[i] > maxVal) {
-            maxVal = toSort[i];
+        if (cast(&toSort[i * size]) > maxVal) {
+            maxVal = cast(&toSort[i * size]);
         }
     }
     deltaVal = maxVal - minVal;
@@ -38,8 +33,8 @@ void castsort(void *toSort, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC 
 
     size_t biggest_collision = 0;
     // Find the nb in each slot
-    for (size_t i = 0; i < size; ++i) {
-        size_t newIndex = (size - 1) * ((toSort[i] - minVal) / deltaVal);
+    for (size_t i = 0; i < nmemb; ++i) {
+        size_t newIndex = (nmemb - 1) * ((cast(&toSort[i * size]) - minVal) / deltaVal);
         work_mem[newIndex].nb++;
         work_mem[newIndex].act = 0;
         if (work_mem[newIndex].nb > biggest_collision) {
@@ -49,7 +44,7 @@ void castsort(void *toSort, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC 
 
     // Find start index in final array for each slot
     size_t act = 0;
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < nmemb; ++i) {
         work_mem[i].start = act;
         act += work_mem[i].nb;
     }
@@ -57,17 +52,18 @@ void castsort(void *toSort, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC 
     // Do the sort
     size_t act_index = 0;
     size_t padding = 0;
-    double new_val, last_val = toSort[act_index];
-    for (size_t i = 0; i < size; ++i) {
-        size_t slotIndex = (size - 1) * ((toSort[act_index] - minVal) / deltaVal);
+    double new_val, last_val = cast(&toSort[act_index * size]);
+    for (size_t i = 0; i < nmemb; ++i) {
+        size_t slotIndex = (size - 1) * ((cast(&toSort[act_index * size]) - minVal) / deltaVal);
         size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
-        new_val = toSort[newIndex];
+        new_val = cast(&toSort[newIndex * size]);
         if(newIndex == padding) {
             padding++;
-            new_val = toSort[newIndex + padding];
+            new_val = cast(&toSort[(newIndex + padding) * size]);
         }
         act_index = newIndex + padding;
-        sorted[newIndex] = last_val;
+        memcpy(&sorted[newIndex * size], &last_val, size);
+        // (sorted[newIndex]) = last_val;
         last_val = new_val;
         work_mem[slotIndex].act++;
     }
@@ -77,15 +73,16 @@ void castsort(void *toSort, mem_t *work_mem, size_t nmemb, size_t size, VALFUNC 
     if (biggest_collision > 1) {
         tmp_work_mem = calloc(biggest_collision, sizeof(mem_t));
     }
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < nmemb; ++i) {
         if (work_mem[i].nb > 1) {
             int nbElem = work_mem[i].nb;
             //memset(work_mem, 0, nbElem*sizeof(mem_t));
             size_t startIndex = work_mem[i].start;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j] = sorted[startIndex + j];
+                memcpy(&sorted[(startIndex + j) * size], &toSort[(startIndex + j) * size], size);
+                // toSort[(startIndex + j) * size] = sorted[(startIndex + j) * size];
             }
-            my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
+            castsort(&toSort[startIndex * size], &sorted[startIndex * size], tmp_work_mem, nbElem, size, cast);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
         }
     }

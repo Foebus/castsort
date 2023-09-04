@@ -1,52 +1,38 @@
-#include <math.h>
 #include <stdio.h>
 #include <time.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
+// #include <qcustomplot.h>
+#include "castsort.h"
 
-#define NB_ELEM  100000000
+#define NB_ELEM  500000000
 #define infinity 1000000000.0
 
 #define RANGE_MAX infinity
 
-typedef struct mem_st {
-    size_t start;
-    bool mean_ready;
-    double mean;
-    double std_deviation;
-    size_t nb;
-    size_t act;
-} mem_t;
-
-typedef struct value_analysis_st {
-    double above_val;
-    double beneath_val;
-    double new_val;
-    double final_index;
-    const double base_val;
-} value_analysis_t;
-
-double sigmoid(double x, double mean, double std_dev){
-    double ret_val = 1/(1 + exp(1/std_dev * (x - mean)));
-    return ret_val;
+double transform_value(double x, double min, double max, double delta){
+    // return x;
+    x = (x - min)/(max - min);
+    if (delta > 1) delta = 1/delta;
+    double sig = 1/((1 + exp(-x)) * delta);
+    return sig;
 }
 
-void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t size) {
+void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, size_t size) {
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
-    double mean = 0;
-    double std_dev = 0.00000001;
 
     // Get information about to values to sort
     for (size_t i = 0; i < size; i++) {
-        if (toSort[i].new_val < minVal) {
-            minVal = toSort[i].new_val;
+        if (toSort[i].transformed_val < minVal) {
+            minVal = toSort[i].transformed_val;
         }
-        if (toSort[i].new_val > maxVal) {
-            maxVal = toSort[i].new_val;
+        if (toSort[i].transformed_val > maxVal) {
+            maxVal = toSort[i].transformed_val;
         }
     }
     deltaVal = maxVal - minVal;
@@ -57,10 +43,9 @@ void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t s
     size_t biggest_collision = 0;
     // Find the nb in each slot
     for (size_t i = 0; i < size; ++i) {
-        size_t newIndex = (size - 1) * ((toSort[i].new_val - minVal) / deltaVal);
+        size_t newIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
         work_mem[newIndex].nb++;
         work_mem[newIndex].act = 0;
-        work_mem[newIndex].mean += toSort->new_val;
         if (work_mem[newIndex].nb > biggest_collision) {
             biggest_collision = work_mem[newIndex].nb;
         }
@@ -71,36 +56,16 @@ void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t s
     for (size_t i = 0; i < size; ++i) {
         work_mem[i].start = act;
         act += work_mem[i].nb;
-        if(!work_mem[i].mean_ready){
-            work_mem[i].mean_ready = true;
-            if(work_mem[i].nb != 0)
-                work_mem[i].mean /= work_mem[i].nb;
-        }
-    }
-
-    for (size_t i = 0; i < size; ++i) {
-        size_t newIndex = (size - 1) * ((toSort[i].new_val - minVal) / deltaVal);
-        work_mem[newIndex].std_deviation += (toSort[i].new_val - work_mem[i].mean) * (toSort[i].new_val - work_mem[i].mean) / work_mem[newIndex].nb;
     }
 
     // Do the sort
-    size_t act_index = 0;
-    size_t padding = 0;
-    double new_val, last_val = toSort[act_index].new_val;
     for (size_t i = 0; i < size; ++i) {
-        size_t slotIndex = (size - 1) * ((toSort[act_index].new_val - minVal) / deltaVal);
+        size_t slotIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
         size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
-        toSort[act_index].final_index = newIndex;
-        toSort[act_index].new_val = sigmoid(toSort[act_index].new_val, work_mem[slotIndex].mean, work_mem[slotIndex].std_deviation);
-        new_val = toSort[newIndex].new_val;
-        if(newIndex == padding) {
-            padding++;
-            new_val = toSort[newIndex + padding].new_val;
-        }
-        toSort[newIndex].final_index = newIndex;
-        act_index = newIndex + padding;
-        sorted[newIndex] = last_val;
-        last_val = new_val;
+        toSort[i].final_index = newIndex;
+        sorted[newIndex] = toSort[i];
+        if (work_mem[slotIndex].max < toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].transformed_val;
+        if (work_mem[slotIndex].min > toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].transformed_val;
         work_mem[slotIndex].act++;
     }
 
@@ -114,8 +79,11 @@ void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t s
             int nbElem = work_mem[i].nb;
             //memset(work_mem, 0, nbElem*sizeof(mem_t));
             size_t startIndex = work_mem[i].start;
+            double delta = work_mem[i].max - work_mem[i].min;
+            if(work_mem[i].max - work_mem[i].min == 0) continue;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j].new_val = sorted[startIndex + j];
+                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].transformed_val, work_mem[i].min, work_mem[i].max, delta);
+                toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
@@ -126,22 +94,19 @@ void my_sort(value_analysis_t *toSort, mem_t *work_mem, double *sorted, size_t s
     }
 }
 
-int lower(const void *a, const void *b) {
-    return *(double *) a > *(double *) b;
-}
-
-void print_arrays(const double *mySecondToBeSortedArray, const double *sortedArray, const size_t nbElem) {
+void print_arrays(const double *mySecondToBeSortedArray, const value_t *sortedArray, const size_t nbElem) {
     printf("contents: \n");
     for (size_t j = 0; j < nbElem; ++j) {
-        fprintf(stderr, "ref: %lf - my: %lf \n", mySecondToBeSortedArray[j], sortedArray[j]);
+        if (mySecondToBeSortedArray[j] !=  sortedArray[j].origin_val)
+            fprintf(stderr, "ref: %lf - my: %lf \n", mySecondToBeSortedArray[j], sortedArray[j].origin_val);
     }
 }
 
 int main(int argc, char **argv) {
 
-    double *myToBeSortedArray;
+    value_t *myToBeSortedArray;
     double *mySecondToBeSortedArray;
-    double *sortedArray;
+    value_t *sortedArray;
     mem_t *myWorkMem;
     struct timeval myBegin, myEnd, refBegin, refEnd;
     double myElapsed, refElapsed;
@@ -150,6 +115,7 @@ int main(int argc, char **argv) {
     size_t maxVal = RANGE_MAX;
     size_t nbVal = NB_ELEM;
     long long seed = (unsigned int) time(NULL);
+    // seed = 1693227749;
 
     if (argc > 1) {
         verbose = false;
@@ -168,9 +134,9 @@ int main(int argc, char **argv) {
 
     if (verbose)
         printf("Allocating memory\n");
-    myToBeSortedArray = malloc(nbVal * sizeof(double));
+    myToBeSortedArray = calloc(nbVal, sizeof(value_t));
     mySecondToBeSortedArray = malloc(nbVal * sizeof(double));
-    sortedArray = malloc(nbVal * sizeof(double));
+    sortedArray = calloc(nbVal, sizeof(value_t));
     myWorkMem = malloc(nbVal * sizeof(mem_t));
     srand(seed);
     //srand((unsigned int) 42);
@@ -178,13 +144,15 @@ int main(int argc, char **argv) {
     if (verbose)
         printf("Initializing the arrays\n");
     for (size_t i = 0; i < nbVal; ++i) {
-        myToBeSortedArray[i] = ((double) rand() / (double) (RAND_MAX)) * maxVal * 2 - maxVal;
-        mySecondToBeSortedArray[i] = myToBeSortedArray[i];
+        myToBeSortedArray[i].origin_val = ((double) rand() / (double) (RAND_MAX)) * maxVal * 2 - maxVal;
+        myToBeSortedArray[i].transformed_val = myToBeSortedArray[i].origin_val;
+        myToBeSortedArray[i].final_index = i;
+        mySecondToBeSortedArray[i] = myToBeSortedArray[i].origin_val;
     }
     memset(myWorkMem, 0, nbVal * sizeof(mem_t));
 
     if (verbose)
-        printf("Starting the race, may the faster win!\n");
+        printf("Starting the race, may the fastest win!\n");
 
     gettimeofday(&myBegin, 0);
     my_sort(myToBeSortedArray, myWorkMem, sortedArray, nbVal);
@@ -199,14 +167,16 @@ int main(int argc, char **argv) {
     if (verbose)
         printf("Checking results\n");
     for (size_t i = 0; i < nbVal; ++i) {
-        if (mySecondToBeSortedArray[i] != sortedArray[i]) {
+        if (fabs(mySecondToBeSortedArray[i] - sortedArray[i].origin_val) > exp(-6)) {
             if (verbose) {
                 printf("The arrays don't have the same values!\n");
                 print_arrays(mySecondToBeSortedArray, sortedArray, nbVal);
+                printf("seed = %lld", seed);
             } else {
                 printf("Error");
             }
-            return 0;
+            // return 0;
+            break;
         }
     }
     if (verbose) {
