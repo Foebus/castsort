@@ -1,7 +1,7 @@
 
 # Algo explanation
 
-The algorithm is close to the bucket sort. 
+The algorithm is close to the proxmap sort. 
 It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
 
 It does a first pass to analyze the values to sort. It extracts the min val and the max val.
@@ -10,15 +10,20 @@ If the delta between min and max is equal to 0, the values left are the same so 
 
 Then we do a second pass to count the number of collision we will encounter to attribute the right positions to the different slots in the final array.
 We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nmemb * (val - min) / (max - min).
-This operation has the good property to be fast to compute, 
-but it may be improved by using a bijection that would allow to change the values to make them farther from one another, 
-but it is not trivial to find such a function with the required properties (the order of the values must be preserved).
+This operation has the good property to be fast to compute. 
+To reduce the risk of collision, for the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
+The code doing this transformation is 
+```
+    x = (x - min)/(max - min);
+    if (delta > 1) delta = 1/delta;
+    double sig = 1/((1 + exp(-x)) * delta);
+    return sig;
+```
 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
 
 Then, for each slot with more than one value, we recurse in the specific slot.
 
-TODO: Find a function to disperse too close values
 ## Example on dummy array
 
 ```
@@ -32,7 +37,7 @@ Second pass =>
 ```
  -12  -3.4   5.2    13.8   22.4   31.6   40.2    49    57.6   66.2   74.8    83.4  91.4   100
  ┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐┌─────┐
- │    1││    3││    1││    1││    3││    0││    1││    1││    1││    0││    0││    0││    1│
+ │  1  ││  3  ││  1  ││  1  ││  3  ││  0  ││    1││    1││    1││    0││    0││    0││    1│
  └─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘└─────┘
 ```
  Then do the sort =>
