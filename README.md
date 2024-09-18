@@ -82,6 +82,10 @@ And here the first slot has 2 values identical, so it will recurse but stop afte
 This algorithm needs memory to store the actual offset in each slot for the next insertion. 
 The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
+In practice, with the default values given in this code, it will need around 8Go of memory. 
+This makes sense in the context of this proof of concept, as there are 5 arrays, for a total of 10 values stored for each value to sort, and each value has 8 bytes.
+So the code require 80 byte per value we want to sort, and the default number is 100 million. 
+
 # Time complexity
 
 This algorithm has a time complexity a bit hard to compute as it depends on the values, and thus the way those values are represented.
