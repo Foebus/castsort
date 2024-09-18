@@ -8,7 +8,7 @@
 // #include <qcustomplot.h>
 #include "castsort.h"
 
-#define NB_ELEM  100000000
+#define NB_ELEM  150000000
 #define infinity 1000000000.0
 
 #define RANGE_MAX infinity
@@ -270,5 +270,11 @@ int main(int argc, char **argv) {
     } else {
         printf("%lf - %lf", refElapsed, myElapsed);
     }
+
+    free(myWorkMem);
+    free(myToBeSortedArray);
+    free(myOriginalToBeSortedArray);
+    free(mySecondToBeSortedArray);
+    free(sortedArray);
     return 0;
 }
