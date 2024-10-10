@@ -11,7 +11,8 @@
 #define NB_ELEM  150000000
 #define infinity 1000000000.0
 
-#define RANGE_MAX infinity
+// #define RANGE_MAX infinity
+#define RANGE_MAX 100
 
 #define NB_WARMUP_LOOP 10
 #define NB_TEST_LOOP 10
@@ -29,11 +30,11 @@ double transform_value(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
     if (delta > 1) delta = 1/delta;
-    double sig = 1/((1 + exp(-x)) * delta);
+    const double sig = 1/((1 + exp(-x)) * delta);
     return sig;
 }
 
-void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, size_t size) {
+void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t size) {
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
@@ -55,7 +56,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, size_t size) {
     size_t biggest_collision = 0;
     // Find the nb in each slot
     for (size_t i = 0; i < size; ++i) {
-        size_t newIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
+        const size_t newIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
         work_mem[newIndex].nb++;
         work_mem[newIndex].act = 0;
         if (work_mem[newIndex].nb > biggest_collision) {
@@ -72,29 +73,29 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, size_t size) {
 
     // Do the sort
     for (size_t i = 0; i < size; ++i) {
-        size_t slotIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
-        size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
+        const size_t slotIndex = (size - 1) * ((toSort[i].transformed_val - minVal) / deltaVal);
+        const size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
         toSort[i].final_index = newIndex;
         sorted[newIndex] = toSort[i];
-        if (work_mem[slotIndex].max < toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].transformed_val;
-        if (work_mem[slotIndex].min > toSort[i].transformed_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].transformed_val;
+        if (work_mem[slotIndex].max < toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].origin_val;
+        if (work_mem[slotIndex].min > toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].origin_val;
         work_mem[slotIndex].act++;
     }
 
     //Recurse in case of collision
-    mem_t *tmp_work_mem;
+    mem_t *tmp_work_mem = NULL;
     if (biggest_collision > 1) {
         tmp_work_mem = calloc(biggest_collision, sizeof(mem_t));
     }
     for (size_t i = 0; i < size; ++i) {
         if (work_mem[i].nb > 1) {
-            int nbElem = work_mem[i].nb;
+            const int nbElem = work_mem[i].nb;
             //memset(work_mem, 0, nbElem*sizeof(mem_t));
-            size_t startIndex = work_mem[i].start;
-            double delta = work_mem[i].max - work_mem[i].min;
+            const size_t startIndex = work_mem[i].start;
+            const double delta = work_mem[i].max - work_mem[i].min;
             if(work_mem[i].max - work_mem[i].min == 0) continue;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].transformed_val, work_mem[i].min, work_mem[i].max, delta);
+                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].origin_val, work_mem[i].min, work_mem[i].max, delta);
                 toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
@@ -260,11 +261,11 @@ int main(int argc, char **argv) {
 
     if (verbose && check_array(verbose, mySecondToBeSortedArray, sortedArray, seed, nbVal)) {
         printf("Results are the same\n");
-        printf("And the winner is...");
+        printf("And the winner is... ");
         if (refElapsed > myElapsed) {
-            printf("Me!");
+            printf("Me!\n");
         } else {
-            printf("The reference");
+            printf("The reference\n");
         }
         printf("With ref: %lf and my time: %lf", refElapsed, myElapsed);
     } else {
