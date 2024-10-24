@@ -26,7 +26,13 @@ typedef enum {
     MY, REF
 } sort_choice_en;
 
-double transform_value(double x, double min, double max, double delta){
+typedef double(*transform_fn_ptr)(double, double, double, double);
+
+inline double transform_value_linear(double x, double min, double max, double delta){
+    return x;
+}
+
+inline double transform_value_sigmoid(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
     if (delta > 1) delta = 1/delta;
@@ -34,7 +40,16 @@ double transform_value(double x, double min, double max, double delta){
     return sig;
 }
 
-void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t size) {
+inline double transform_value_other(double x, double min, double max, double delta){
+    // return x;
+    x = (x - min)/(max - min);
+    if (delta > 1) delta = 1/delta;
+    const double sig = 1/((1 + exp(-x)) * delta);
+    return sig;
+}
+
+void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t size, const transform_fn_ptr transform_value) {
+    if (toSort == NULL || work_mem == NULL || sorted == NULL) return;
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
@@ -89,7 +104,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
     }
     for (size_t i = 0; i < size; ++i) {
         if (work_mem[i].nb > 1) {
-            const int nbElem = work_mem[i].nb;
+            const size_t nbElem = work_mem[i].nb;
             //memset(work_mem, 0, nbElem*sizeof(mem_t));
             const size_t startIndex = work_mem[i].start;
             const double delta = work_mem[i].max - work_mem[i].min;
@@ -98,7 +113,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
                 toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].origin_val, work_mem[i].min, work_mem[i].max, delta);
                 toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
-            my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem);
+            my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem, transform_value);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
         }
     }
@@ -108,9 +123,10 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
 }
 
 static inline void print_arrays(const double *mySecondToBeSortedArray, const value_t *sortedArray, const size_t nbElem) {
+    if (mySecondToBeSortedArray == NULL || sortedArray == NULL || nbElem == 0) return;
     printf("contents: \n");
     for (size_t j = 0; j < nbElem; ++j) {
-        if (mySecondToBeSortedArray[j] !=  sortedArray[j].origin_val)
+        if (mySecondToBeSortedArray[j] != sortedArray[j].origin_val)
             fprintf(stderr, "ref: %lf - my: %lf \n", mySecondToBeSortedArray[j], sortedArray[j].origin_val);
     }
 }
@@ -119,7 +135,8 @@ int lower(const void *a, const void *b) {
     return *(double *) a > *(double *) b;
 }
 
-static inline int check_array(bool verbose, double * mySecondToBeSortedArray, value_t * sortedArray, long long seed, size_t nbVal){
+static inline int check_array(bool verbose, const double * mySecondToBeSortedArray, const value_t * sortedArray, const long long seed, const size_t nbVal){
+    if(mySecondToBeSortedArray == NULL || sortedArray == NULL || nbVal < 1) return 0;
     if (verbose)
         printf("Checking results\n");
     for (size_t i = 0; i < nbVal; ++i) {
@@ -138,31 +155,32 @@ static inline int check_array(bool verbose, double * mySecondToBeSortedArray, va
     return 1;
 }
 
-static inline void my_warmup_pass(value_t * input, value_t * output, mem_t * workMem, size_t nbVal){
-    my_sort(input, workMem, output, nbVal);
+static inline void my_warmup_pass(value_t * input, value_t * output, mem_t * workMem, const size_t nbVal, const transform_fn_ptr transform_value){
+    my_sort(input, workMem, output, nbVal, transform_value);
 }
 
-static inline void ref_warmup_pass(double * input, size_t nbVal){
+static inline void ref_warmup_pass(double * input, const size_t nbVal){
     qsort(input, nbVal, sizeof(double), lower);
 }
 
-static inline double my_test_pass(value_t * input, value_t * output, mem_t * workMem, size_t nbVal){
+static inline double my_test_pass(value_t * input, value_t * output, mem_t * workMem, const size_t nbVal, const transform_fn_ptr transform_value){
     struct timeval timeBegin, timeEnd;
     gettimeofday(&timeBegin, 0);
-    my_sort(input, workMem, output, nbVal);
+    my_sort(input, workMem, output, nbVal, transform_value);
     gettimeofday(&timeEnd, 0);
-    return timeEnd.tv_sec - timeBegin.tv_sec + (timeEnd.tv_usec - timeBegin.tv_usec) * 1e-6;
+    return (double)timeEnd.tv_sec - (double)timeBegin.tv_sec + (double)(timeEnd.tv_usec - timeBegin.tv_usec) * 1e-6;
 }
 
-static inline double ref_test_pass(double * input, size_t nbVal){
+static inline double ref_test_pass(double * input, const size_t nbVal){
     struct timeval timeBegin, timeEnd;
     gettimeofday(&timeBegin, 0);
     qsort(input, nbVal, sizeof(double), lower);
     gettimeofday(&timeEnd, 0);
-    return timeEnd.tv_sec - timeBegin.tv_sec + (timeEnd.tv_usec - timeBegin.tv_usec) * 1e-6;
+    return (double)timeEnd.tv_sec - (double)timeBegin.tv_sec + (double)(timeEnd.tv_usec - timeBegin.tv_usec) * 1e-6;
 }
 
-static inline void resetArrays(bool verbose, double * refArray, value_t * myArray, double * originArray, size_t nbVal){
+static inline void resetArrays(bool verbose, double * refArray, value_t * myArray, const double * originArray, const size_t nbVal){
+    if(refArray == NULL || myArray == NULL || originArray == NULL) return;
     for (size_t i = 0; i < nbVal; ++i) {
         myArray[i].origin_val = originArray[i];
         myArray[i].transformed_val = myArray[i].origin_val;
@@ -185,6 +203,7 @@ int main(int argc, char **argv) {
     size_t warmup_loops_nb = NB_WARMUP_LOOP;
     size_t test_loops_nb = NB_TEST_LOOP;
     long long seed = (unsigned int) time(NULL);
+    transform_fn_ptr transform_value = transform_value_linear;
     // seed = 1693227749;
 
     if (argc > 1) {
@@ -202,6 +221,9 @@ int main(int argc, char **argv) {
             char *endCharArgv5 = argv[5] + strlen(argv[5]);
             test_loops_nb = strtoll(argv[5], &endCharArgv5, 10);
             if (argc > 6) {
+                transform_value = transform_value_sigmoid;
+            }
+            if (argc > 7) {
                 verbose = true;
             }
         }
@@ -231,7 +253,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < warmup_loops_nb; ++i) {
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
         memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-        my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal);
+        my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value);
     }
 
     if (verbose)
@@ -239,7 +261,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < test_loops_nb; ++i) {
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
         memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal) / nbVal;
+        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value) / nbVal;
     }
 
     if (verbose)
@@ -257,7 +279,7 @@ int main(int argc, char **argv) {
     }
 
     memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-    my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal);
+    my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value);
 
     if (verbose && check_array(verbose, mySecondToBeSortedArray, sortedArray, seed, nbVal)) {
         printf("Results are the same\n");
