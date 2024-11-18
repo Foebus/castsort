@@ -40,6 +40,14 @@ inline double transform_value_sigmoid(double x, double min, double max, double d
     return sig;
 }
 
+inline double transform_value_sigmoid_med(double x, double median, double NOTHING, double delta){
+    // return x;
+    x = (x - median)/delta;
+    if (delta > 1) delta = 1/delta;
+    const double sig = 1/((1 + exp(-x)) * delta);
+    return sig;
+}
+
 inline double transform_value_other(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
@@ -109,8 +117,9 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
             const size_t startIndex = work_mem[i].start;
             const double delta = work_mem[i].max - work_mem[i].min;
             if(work_mem[i].max - work_mem[i].min == 0) continue;
+            work_mem[i].median = toSort[startIndex + rand() % nbElem].origin_val;
             for (int j = 0; j < nbElem; ++j) {
-                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].origin_val, work_mem[i].min, work_mem[i].max, delta);
+                toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].origin_val, work_mem[i].median, work_mem[i].max, delta);
                 toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
             my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem, transform_value);
@@ -221,7 +230,7 @@ int main(int argc, char **argv) {
             char *endCharArgv5 = argv[5] + strlen(argv[5]);
             test_loops_nb = strtoll(argv[5], &endCharArgv5, 10);
             if (argc > 6) {
-                transform_value = transform_value_sigmoid;
+                transform_value = transform_value_sigmoid_med;
             }
             if (argc > 7) {
                 verbose = true;

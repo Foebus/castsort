@@ -65,6 +65,7 @@ typedef struct mem_st {
     size_t act;
     double max;
     double min;
+    double median;
 } mem_t;
 
 typedef struct {
