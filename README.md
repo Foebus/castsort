@@ -19,6 +19,16 @@ The code doing this transformation is
     double sig = 1/((1 + exp(-x)) * delta);
     return sig;
 ```
+Or even better is to center the points in the function. To do that, the goal is to take a value close to most of the points, ignoring the outliers. 
+The best value to get is the median, but it is hard to compute. A solution is to take a random value, statistically it is not so bad (as it is used in QuickSort).
+The function then becomes 
+```
+    x = (x - median)/(delta);
+    if (delta > 1) delta = 1/delta;
+    double sig = 1/((1 + exp(-x)) * delta);
+    return sig;
+```
+And it's great because now the sigmoid is centered around the median, so if some points are very close and around the middle these will be sent far from one another and far points will be flattened.
 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
 

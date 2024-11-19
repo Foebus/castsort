@@ -100,6 +100,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
         const size_t newIndex = work_mem[slotIndex].start + work_mem[slotIndex].act;
         toSort[i].final_index = newIndex;
         sorted[newIndex] = toSort[i];
+        // todo: improve here recursing transformation function if the values are not the same
         if (work_mem[slotIndex].max < toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].max = toSort[i].origin_val;
         if (work_mem[slotIndex].min > toSort[i].origin_val || work_mem[slotIndex].act == 0) work_mem[slotIndex].min = toSort[i].origin_val;
         work_mem[slotIndex].act++;
