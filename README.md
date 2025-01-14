@@ -1,14 +1,17 @@
 
 # Algo explanation
 
-The algorithm is close to the proxmap sort. 
+The algorithm is close to the [proxmap](https://en.wikipedia.org/wiki/Proxmap_sort) sort. The main difference is the approach and the function used to determine the new position of each value.
+
 It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
 
 It does a first pass to analyze the values to sort. It extracts the min val and the max val.
 
 If the delta between min and max is equal to 0, the values left are the same so we don't need to reorder, so we are done.
 
-Then we do a second pass to count the number of collision we will encounter to attribute the right positions to the different slots in the final array.
+Then we do a second pass to prepare the slots to sort the array.
+For that, we count the number of collision we will encounter, to attribute the right sizes to the different slots in the final array. 
+This will allow us to know where each slot begins in the actual array.
 We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nmemb * (val - min) / (max - min).
 This operation has the good property to be fast to compute. 
 To reduce the risk of collision, for the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
