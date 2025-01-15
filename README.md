@@ -5,6 +5,8 @@ The algorithm is close to the [proxmap](https://en.wikipedia.org/wiki/Proxmap_so
 
 It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
 
+![scheme](castsort_global_hand.jpg)
+
 It does a first pass to analyze the values to sort. It extracts the min val and the max val.
 
 If the delta between min and max is equal to 0, the values left are the same so we don't need to reorder, so we are done.
@@ -15,10 +17,13 @@ For that, we count the number of collision we will encounter, to attribute the r
 A slot is a logical part of the array where all values collide. 
 The number of slots must be O(n) to keep the memory usage complexity.
 
+Example : array = [3, 0, 40, 5], there will typically be 4 slots (as many as the number of values in the array), the first with 3 elements(0, 3 and 5), the two next with 0 and the last with 1 (40).
+
 This will allow us to know where each slot begins in the actual array.
-We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nmemb * (val - min) / (max - min).
-This operation has the good property to be fast to compute. 
-To reduce the risk of collision, for the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
+We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nb_slots * (val - min) / (max - min).
+This operation has the good property to be fast to compute.
+
+To reduce the risk of collision, before the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
 The code doing this transformation is 
 ```
     x = (x - min)/(max - min);
@@ -36,6 +41,8 @@ The function then becomes
     return sig;
 ```
 And it's great because now the sigmoid is centered around the median, so if some points are very close and around the middle these will be sent far from one another and far points will be flattened.
+
+The transformed value is stored, but the initial value is also kept to avoid rounding issues when doing the transformation and reset the value when we're done.
 
 Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
 
