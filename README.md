@@ -110,9 +110,10 @@ This algorithm needs memory to store the actual offset in each slot for the next
 The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
 
-In the context of this proof of concept, with the default parameters given in the code, it will need around 8Go of memory.
-This makes sense in the context of this proof of concept, as there are 5 arrays, for a total of 10 values stored for each value to sort, and each value has 8 bytes.
-So, this code requires 80 byte per value we want to sort, and the default number is 100 million.
+In the context of this proof of concept, with the default parameters given in the code, the memory required will amount to around 8Go.
+Here is the breakdown for this value. 
+This implementation leverages 5 arrays, for a total of 10 values stored for each value to sort, with each value represented over 8 bytes.
+Therefore, 80 bytes are required per value we want to sort, for each value in the default count of 100 million.
 
 # Time complexity
 
