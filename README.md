@@ -14,9 +14,8 @@ If the delta between the minimum and the maximum value is equal to 0, the remain
 
 ## Step 2: prepare the slots
 A slot is a logical part of the array where all values collide.
-The number of slots must be O(n) to keep the memory usage complexity.
 
-Then we do a second pass to prepare the slots to sort the array.
+The goal of this step is to prepare the slots to sort the array.
 For that, we count the number of collisions we will encounter, to attribute the right sizes to the different slots in the final array.
 
 Example : array = [3, 0, 40, 5], there will typically be 4 slots (as many as the number of values in the array), the first with 3 elements(0, 3 and 5), the two next with 0 and the last with 1 (40).
@@ -106,6 +105,8 @@ And here the first slot has 2 values identical, so it will recurse but stop afte
 
 # Memory usage
 
+The following memory usage assumes a number of slots of around O(n).
+
 This algorithm needs memory to store the actual offset in each slot for the next insertion. 
 The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
@@ -117,11 +118,14 @@ Therefore, 80 bytes are required per value we want to sort, for each value in th
 
 # Time complexity
 
+The time complexity of this algorithm is hard to compute as it highly depends on the values and the way these values are represented.
 This algorithm has a time complexity a bit hard to compute as it depends on the values, and thus the way those values are represented.
 Most of the time, the time complexity is of order of n, if the values create order of n collisions, the complexity may be higher.
-To have a time complexity higher than O(n), the values must be in the same slot in a significant way recursively. 
-To have a complexity of O(n*s), we thus need to have values recursively close s times. 
+To have a time complexity higher than O(n), the values must be in the same slot in a significant way recursively.
+If we have values "recursively close" s times, we will have a complexity of O(n * s). 
 Depending on the representation of the values, this value may be limited.
+
+To break it down, if we have fixed-length values, the s will be a fixed value. This implies that the time complexity in this usage will be of O(N)
 
 # Parallelism
 
