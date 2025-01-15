@@ -3,26 +3,29 @@
 
 The algorithm is close to the [proxmap](https://en.wikipedia.org/wiki/Proxmap_sort) sort. The main difference is the approach and the function used to determine the new position of each value.
 
-It can sort any kind of value as long as it can be translated to double (or float or any, we actually need to have three operations: addition, substraction and division).
+It can sort any kind of value as long as it can be translated to double (or float or any other as long as we have addition, subtraction and division defined).
 
 ![scheme](castsort_global_hand.jpg)
 
-It does a first pass to analyze the values to sort. It extracts the min val and the max val.
+## step 1, analysis
+Extract the minimum and the maximum values.
 
-If the delta between min and max is equal to 0, the values left are the same so we don't need to reorder, so we are done.
+If the delta between the minimum and the maximum value is equal to 0, the remaining values are all equal so we don't need to reorder, so we are done.
+
+## step 2, prepare the slots
+A slot is a logical part of the array where all values collide.
+The number of slots must be O(n) to keep the memory usage complexity.
 
 Then we do a second pass to prepare the slots to sort the array.
-For that, we count the number of collision we will encounter, to attribute the right sizes to the different slots in the final array.
-
-A slot is a logical part of the array where all values collide. 
-The number of slots must be O(n) to keep the memory usage complexity.
+For that, we count the number of collisions we will encounter, to attribute the right sizes to the different slots in the final array.
 
 Example : array = [3, 0, 40, 5], there will typically be 4 slots (as many as the number of values in the array), the first with 3 elements(0, 3 and 5), the two next with 0 and the last with 1 (40).
 
 This will allow us to know where each slot begins in the actual array.
 We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nb_slots * (val - min) / (max - min).
-This operation has the good property to be fast to compute.
+This operation has the desirable property of being fast to compute.
 
+## step 3, transformation and recursion
 To reduce the risk of collision, before the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
 The code doing this transformation is 
 ```
@@ -106,7 +109,7 @@ And here the first slot has 2 values identical, so it will recurse but stop afte
 This algorithm needs memory to store the actual offset in each slot for the next insertion. 
 The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
-In practice, with the default values given in this code, it will need around 8Go of memory. 
+In practice, with the default parameters given in this code, it will need around 8Go of memory. 
 This makes sense in the context of this proof of concept, as there are 5 arrays, for a total of 10 values stored for each value to sort, and each value has 8 bytes.
 So the code require 80 byte per value we want to sort, and the default number is 100 million. 
 
