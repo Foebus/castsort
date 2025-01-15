@@ -7,12 +7,12 @@ It can sort any kind of value as long as it can be translated to double (or floa
 
 ![scheme](castsort_global_hand.jpg)
 
-## step 1, analysis
+## Step 1: analysis
 Extract the minimum and the maximum values.
 
 If the delta between the minimum and the maximum value is equal to 0, the remaining values are all equal so we don't need to reorder, so we are done.
 
-## step 2, prepare the slots
+## Step 2: prepare the slots
 A slot is a logical part of the array where all values collide.
 The number of slots must be O(n) to keep the memory usage complexity.
 
@@ -25,7 +25,7 @@ This will allow us to know where each slot begins in the actual array.
 We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nb_slots * (val - min) / (max - min).
 This operation has the desirable property of being fast to compute.
 
-## step 3, transformation and recursion
+## Step 3: transformation and recursion
 To reduce the risk of collision, before the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
 The code doing this transformation is 
 ```
@@ -34,7 +34,7 @@ The code doing this transformation is
     double sig = 1/((1 + exp(-x)) * delta);
     return sig;
 ```
-Or even better is to center the points in the function. To do that, the goal is to take a value close to most of the points, ignoring the outliers. 
+Or even better is to center the points in the function. To achieve that, the goal is to take a value close to most of the points, ignoring the outliers. 
 The best value to get is the median, but it is hard to compute. A solution is to take a random value, statistically it is not so bad (as it is used in QuickSort).
 The function then becomes 
 ```
@@ -43,11 +43,11 @@ The function then becomes
     double sig = 1/((1 + exp(-x)) * delta);
     return sig;
 ```
-And it's great because now the sigmoid is centered around the median, so if some points are very close and around the middle these will be sent far from one another and far points will be flattened.
+Now the sigmoid is centered (more or less) around the median, so if some points are very close and around the middle these will be sent far from one another and far points will be flattened.
 
 The transformed value is stored, but the initial value is also kept to avoid rounding issues when doing the transformation and reset the value when we're done.
 
-Once this analysis is done, we do one last pass, placing the values to the corresponding location in each slot.
+Once this transformation is done, we proceed to one last pass, placing the values in the corresponding location in each slot.
 
 Then, for each slot with more than one value, we recurse in the specific slot.
 
@@ -109,9 +109,10 @@ And here the first slot has 2 values identical, so it will recurse but stop afte
 This algorithm needs memory to store the actual offset in each slot for the next insertion. 
 The required quantity for the first version of this algorithm is of O(N) in the worst case, but it probably could be lowered by a smarter way to store the values.
 
-In practice, with the default parameters given in this code, it will need around 8Go of memory. 
+
+In the context of this proof of concept, with the default parameters given in the code, it will need around 8Go of memory.
 This makes sense in the context of this proof of concept, as there are 5 arrays, for a total of 10 values stored for each value to sort, and each value has 8 bytes.
-So the code require 80 byte per value we want to sort, and the default number is 100 million. 
+So, this code requires 80 byte per value we want to sort, and the default number is 100 million.
 
 # Time complexity
 
