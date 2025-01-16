@@ -1,18 +1,20 @@
 
 # Algo explanation
 
-The algorithm is close to the [proxmap](https://en.wikipedia.org/wiki/Proxmap_sort) sort. The main difference is the approach and the function used to determine the new position of each value.
+The algorithm is close to the [proxmap](https://en.wikipedia.org/wiki/Proxmap_sort) sort. 
+The main difference is the approach and the function used to determine the new position of each value. 
+The sorting here is though as a referential change. The new value is computed as a sigmoid instead of a simple linear cast to prevent badly distributed values.
 
 It can sort any kind of value as long as it can be translated to double (or float or any other as long as we have addition, subtraction and division defined).
 
 ![scheme](castsort_global_hand.jpg)
 
-## Step 1: analysis
+## Step 1: Analyse data
 Extract the minimum and the maximum values.
 
 If the delta between the minimum and the maximum value is equal to 0, the remaining values are all equal so we don't need to reorder, so we are done.
 
-## Step 2: prepare the slots
+## Step 2: Prepare the slots in array
 A slot is a logical part of the array where all values collide.
 
 The goal of this step is to prepare the slots to sort the array.
@@ -21,11 +23,24 @@ For that, we count the number of collisions we will encounter, to attribute the 
 Example : array = [3, 0, 40, 5], there will typically be 4 slots (as many as the number of values in the array), the first with 3 elements(0, 3 and 5), the two next with 0 and the last with 1 (40).
 
 This will allow us to know where each slot begins in the actual array.
-We store those sizes in a dedicated array. To know where the value will be sent, we do the operation we will do in the next pass: nb_slots * (val - min) / (max - min).
+We store those sizes in a dedicated array. 
+To know where the value will be sent, we do the operation we will do in the next pass: (nb_slots - 1) * (val - min) / (max - min). With an integer division.
 This operation has the desirable property of being fast to compute.
 
-## Step 3: transformation and recursion
+Thus, for [3, 0, 40, 5] we get the slot values of: 
+
+for 3: 3 * (3 - 0) / (40) = 0
+
+for 0: 3 * (0 - 0) / (40) = 0
+
+for 40: 3 * (40 - 0) / (40) = 3
+
+for 5: 3 * (5 - 0) / (40) = 0
+
+## Step 3: Transform & move data
+
 To reduce the risk of collision, before the recursion, the value is transformed using a sigmoid function to modify as much as possible the closest values.
+This operation should be as precise as possible, so all division here should use double, or even better precision if available without additional time cost.
 The code doing this transformation is 
 ```
     x = (x - min)/(max - min);
@@ -43,6 +58,7 @@ The function then becomes
     return sig;
 ```
 Now the sigmoid is centered (more or less) around the median, so if some points are very close and around the middle these will be sent far from one another and far points will be flattened.
+This transformation is made for each slot independently as the goal is to improve the result for the recursion, and the recursion will happen in the individual slots.
 
 The transformed value is stored, but the initial value is also kept to avoid rounding issues when doing the transformation and reset the value when we're done.
 
