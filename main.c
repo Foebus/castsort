@@ -8,7 +8,7 @@
 // #include <qcustomplot.h>
 #include "castsort.h"
 
-#define NB_ELEM  150000000
+#define NB_ELEM  1000000
 #define infinity 1000000000.0
 
 // #define RANGE_MAX infinity
@@ -28,11 +28,11 @@ typedef enum {
 
 typedef double(*transform_fn_ptr)(double, double, double, double);
 
-inline double transform_value_linear(double x, double min, double max, double delta){
+double transform_value_linear(double x, double min, double max, double delta){
     return x;
 }
 
-inline double transform_value_sigmoid(double x, double min, double max, double delta){
+double transform_value_sigmoid(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
     if (delta > 1) delta = 1/delta;
@@ -40,7 +40,7 @@ inline double transform_value_sigmoid(double x, double min, double max, double d
     return sig;
 }
 
-inline double transform_value_sigmoid_med(double x, double median, double NOTHING, double delta){
+double transform_value_sigmoid_med(double x, double median, double NOTHING, double delta){
     // return x;
     x = (x - median)/delta;
     if (delta > 1) delta = 1/delta;
@@ -56,11 +56,12 @@ inline double transform_value_other(double x, double min, double max, double del
     return sig;
 }
 
-void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t size, const transform_fn_ptr transform_value) {
-    if (toSort == NULL || work_mem == NULL || sorted == NULL) return;
+int my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t size, const transform_fn_ptr transform_value) {
+    if (toSort == NULL || work_mem == NULL || sorted == NULL) return 0;
     double maxVal = -infinity;
     double minVal = infinity;
     double deltaVal;
+    int max_depth = 0;
 
     // Get information about to values to sort
     for (size_t i = 0; i < size; i++) {
@@ -74,7 +75,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
     deltaVal = maxVal - minVal;
 
     // In the case where min == max, it means all remaining values are equal
-    if (deltaVal == 0) return;
+    if (deltaVal == 0) return 1;
 
     size_t biggest_collision = 0;
     // Find the nb in each slot
@@ -111,6 +112,7 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
     if (biggest_collision > 1) {
         tmp_work_mem = calloc(biggest_collision, sizeof(mem_t));
     }
+
     for (size_t i = 0; i < size; ++i) {
         if (work_mem[i].nb > 1) {
             const size_t nbElem = work_mem[i].nb;
@@ -123,13 +125,17 @@ void my_sort(value_t *toSort, mem_t *work_mem, value_t *sorted, const size_t siz
                 toSort[startIndex + j].transformed_val = transform_value(sorted[startIndex + j].origin_val, work_mem[i].median, work_mem[i].max, delta);
                 toSort[startIndex + j].origin_val = sorted[startIndex + j].origin_val;
             }
-            my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem, transform_value);
+            int local_depth = my_sort(&toSort[startIndex], tmp_work_mem, &sorted[startIndex], nbElem, transform_value);
             memset(tmp_work_mem, 0, biggest_collision * sizeof(mem_t));
+            if (local_depth > max_depth) {
+                max_depth = local_depth;
+            }
         }
     }
     if (biggest_collision > 1) {
         free(tmp_work_mem);
     }
+    return max_depth + 1;
 }
 
 static inline void print_arrays(const double *mySecondToBeSortedArray, const value_t *sortedArray, const size_t nbElem) {
@@ -173,10 +179,10 @@ static inline void ref_warmup_pass(double * input, const size_t nbVal){
     qsort(input, nbVal, sizeof(double), lower);
 }
 
-static inline double my_test_pass(value_t * input, value_t * output, mem_t * workMem, const size_t nbVal, const transform_fn_ptr transform_value){
+static inline double my_test_pass(value_t * input, value_t * output, mem_t * workMem, const size_t nbVal, const transform_fn_ptr transform_value, int * depth){
     struct timeval timeBegin, timeEnd;
     gettimeofday(&timeBegin, 0);
-    my_sort(input, workMem, output, nbVal, transform_value);
+    *depth = my_sort(input, workMem, output, nbVal, transform_value);
     gettimeofday(&timeEnd, 0);
     return (double)timeEnd.tv_sec - (double)timeBegin.tv_sec + (double)(timeEnd.tv_usec - timeBegin.tv_usec) * 1e-6;
 }
@@ -214,7 +220,7 @@ int main(int argc, char **argv) {
     size_t test_loops_nb = NB_TEST_LOOP;
     long long seed = (unsigned int) time(NULL);
     transform_fn_ptr transform_value = transform_value_linear;
-    // seed = 1693227749;
+    //seed = 17278702310;
 
     if (argc > 1) {
         verbose = false;
@@ -252,7 +258,8 @@ int main(int argc, char **argv) {
     if (verbose)
         printf("Initializing the arrays\n");
     for (size_t i = 0; i < nbVal; ++i) {
-        myOriginalToBeSortedArray[i] = ((double) rand() / (double) (RAND_MAX)) * maxVal * 2 - maxVal;
+        double new_val = ((double) rand() / (double) (RAND_MAX)) * maxVal * 2 - maxVal;
+        myOriginalToBeSortedArray[i] = exp(new_val);
     }
 
     resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
@@ -266,30 +273,39 @@ int main(int argc, char **argv) {
         my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value);
     }
 
+    int max_depth = 0;
     if (verbose)
         printf("Starting my measures, may the proc be with me!\n");
     for (int i = 0; i < test_loops_nb; ++i) {
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
         memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value) / nbVal;
+        int local_depth = 0;
+        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_sigmoid_med, &local_depth) / nbVal;
+        if (local_depth > max_depth) {
+            max_depth = local_depth;
+        }
     }
 
     if (verbose)
         printf("Starting the warming of the reference, may the proc be ready!\n");
     for (int i = 0; i < warmup_loops_nb; ++i) {
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
-        ref_warmup_pass(mySecondToBeSortedArray, nbVal);
+        memset(myWorkMem, 0, nbVal * sizeof(mem_t));
+        my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear);
     }
 
+    int max_depth_ref = 0;
     if (verbose)
         printf("Starting the measure of the ref, may the fastest win!\n");
     for (int i = 0; i < test_loops_nb; ++i) {
+        int curr_depth = 0;
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
-        refElapsed += ref_test_pass(mySecondToBeSortedArray, nbVal) / nbVal;
+        memset(myWorkMem, 0, nbVal * sizeof(mem_t));
+        refElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear, &curr_depth) / nbVal;
+        if (curr_depth > max_depth_ref) {
+            max_depth_ref = curr_depth;
+        }
     }
-
-    memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-    my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value);
 
     if (verbose && check_array(verbose, mySecondToBeSortedArray, sortedArray, seed, nbVal)) {
         printf("Results are the same\n");
@@ -301,7 +317,7 @@ int main(int argc, char **argv) {
         }
         printf("With ref: %lf and my time: %lf", refElapsed, myElapsed);
     } else {
-        printf("%lf - %lf", refElapsed, myElapsed);
+        printf("%lf - %lf - %d - %d", refElapsed, myElapsed, max_depth, max_depth_ref);
     }
 
     free(myWorkMem);
