@@ -48,7 +48,7 @@ double transform_value_sigmoid_med(double x, double median, double NOTHING, doub
     return sig;
 }
 
-inline double transform_value_other(double x, double min, double max, double delta){
+double transform_value_other(double x, double min, double max, double delta){
     // return x;
     x = (x - min)/(max - min);
     if (delta > 1) delta = 1/delta;
@@ -165,7 +165,6 @@ static inline int check_array(bool verbose, const double * mySecondToBeSortedArr
                 printf("Error");
             }
             return 0;
-            break;
         }
     }
     return 1;
@@ -214,6 +213,8 @@ int main(int argc, char **argv) {
     double myElapsed = 0, refElapsed = 0;
 
     bool verbose = true;
+    bool is_exp = true;
+    bool compare_to_qsort = true;
     size_t maxVal = RANGE_MAX;
     size_t nbVal = NB_ELEM;
     size_t warmup_loops_nb = NB_WARMUP_LOOP;
@@ -240,6 +241,12 @@ int main(int argc, char **argv) {
                 transform_value = transform_value_sigmoid_med;
             }
             if (argc > 7) {
+                is_exp = strcmp(argv[6], "1") == 0;
+            }
+            if (argc > 8) {
+                compare_to_qsort = strcmp(argv[7], "1") == 0;
+            }
+            if (argc > 9) {
                 verbose = true;
             }
         }
@@ -259,7 +266,12 @@ int main(int argc, char **argv) {
         printf("Initializing the arrays\n");
     for (size_t i = 0; i < nbVal; ++i) {
         double new_val = ((double) rand() / (double) (RAND_MAX)) * maxVal * 2 - maxVal;
-        myOriginalToBeSortedArray[i] = exp(new_val);
+        if(is_exp) {
+            myOriginalToBeSortedArray[i] = exp(new_val);
+        }else {
+            myOriginalToBeSortedArray[i] = new_val;
+        }
+
     }
 
     resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
@@ -280,30 +292,45 @@ int main(int argc, char **argv) {
         resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
         memset(myWorkMem, 0, nbVal * sizeof(mem_t));
         int local_depth = 0;
-        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_sigmoid_med, &local_depth) / nbVal;
+        myElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_sigmoid_med, &local_depth) / test_loops_nb;
         if (local_depth > max_depth) {
             max_depth = local_depth;
         }
     }
 
-    if (verbose)
-        printf("Starting the warming of the reference, may the proc be ready!\n");
-    for (int i = 0; i < warmup_loops_nb; ++i) {
-        resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
-        memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-        my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear);
-    }
-
     int max_depth_ref = 0;
     if (verbose)
-        printf("Starting the measure of the ref, may the fastest win!\n");
-    for (int i = 0; i < test_loops_nb; ++i) {
-        int curr_depth = 0;
-        resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
-        memset(myWorkMem, 0, nbVal * sizeof(mem_t));
-        refElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear, &curr_depth) / nbVal;
-        if (curr_depth > max_depth_ref) {
-            max_depth_ref = curr_depth;
+        printf("Starting the warming of the reference, may the proc be ready!\n");
+    if (compare_to_qsort) {
+        max_depth_ref = max_depth;
+        for (int i = 0; i < warmup_loops_nb; ++i) {
+            resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
+            ref_warmup_pass(mySecondToBeSortedArray, nbVal);
+        }
+
+        if (verbose)
+            printf("Starting the measure of the ref, may the fastest win!\n");
+        for (int i = 0; i < test_loops_nb; ++i) {
+            resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
+            refElapsed += ref_test_pass(mySecondToBeSortedArray, nbVal) / test_loops_nb;
+        }
+    }else {
+        for (int i = 0; i < warmup_loops_nb; ++i) {
+            resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
+            memset(myWorkMem, 0, nbVal * sizeof(mem_t));
+            my_warmup_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear);
+        }
+
+        if (verbose)
+            printf("Starting the measure of the ref, may the fastest win!\n");
+        for (int i = 0; i < test_loops_nb; ++i) {
+            int curr_depth = 0;
+            resetArrays(verbose, mySecondToBeSortedArray, myToBeSortedArray, myOriginalToBeSortedArray, nbVal);
+            memset(myWorkMem, 0, nbVal * sizeof(mem_t));
+            refElapsed += my_test_pass(myToBeSortedArray, sortedArray, myWorkMem, nbVal, transform_value_linear, &curr_depth) / test_loops_nb;
+            if (curr_depth > max_depth_ref) {
+                max_depth_ref = curr_depth;
+            }
         }
     }
 
