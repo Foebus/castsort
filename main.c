@@ -240,13 +240,13 @@ int main(int argc, char **argv) {
             if (argc > 6) {
                 transform_value = transform_value_sigmoid_med;
             }
-            if (argc > 7) {
+            if (argc >= 7) {
                 is_exp = strcmp(argv[6], "1") == 0;
             }
-            if (argc > 8) {
+            if (argc >= 8) {
                 compare_to_qsort = strcmp(argv[7], "1") == 0;
             }
-            if (argc > 9) {
+            if (argc >= 9) {
                 verbose = true;
             }
         }
