@@ -6,5 +6,5 @@ set(CMAKE_C_STANDARD 11)
 add_executable(InstaSort main.c)
 add_executable(CastSort main.c)
 
-target_link_libraries(InstaSort m)
-target_link_libraries(CastSort m)
+target_link_libraries(InstaSort m gsl)
+target_link_libraries(CastSort m gsl)
